@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+deepagents
+langchain-anthropic
+python-frontmatter
+python-dotenv
+tavily-python
+duckduckgo-search
+pydantic
+tabulate
