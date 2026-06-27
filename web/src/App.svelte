@@ -107,12 +107,12 @@ Responsibilities:
 
     <div class="inputs">
       <div class="field">
-        <label>Resume</label>
-        <textarea bind:value={resume} placeholder="Paste your resume here…" rows="12"></textarea>
+        <label for="resume">Resume</label>
+        <textarea id="resume" bind:value={resume} placeholder="Paste your resume here…" rows="12"></textarea>
       </div>
       <div class="field">
-        <label>Job Posting</label>
-        <textarea bind:value={jobPosting} placeholder="Paste the job posting here…" rows="12"></textarea>
+        <label for="job">Job Posting</label>
+        <textarea id="job" bind:value={jobPosting} placeholder="Paste the job posting here…" rows="12"></textarea>
       </div>
     </div>
 

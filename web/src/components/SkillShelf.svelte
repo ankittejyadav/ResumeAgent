@@ -20,7 +20,7 @@
             {skill.model?.includes('haiku') ? 'Haiku' : 'Sonnet'}
           </div>
         {/if}
-        {#if isActive}<div class="active-ring"/>{/if}
+        {#if isActive}<div class="active-ring"></div>{/if}
       </div>
     {/each}
   </div>
