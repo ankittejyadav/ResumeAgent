@@ -1,5 +1,5 @@
 <script>
-  import { state, connect, connectMock } from './lib/eventStore.js';
+  import { state, connectMockLocal, startLiveRun } from './lib/eventStore.js';
   import ScoreDial from './components/ScoreDial.svelte';
   import TodoPanel from './components/TodoPanel.svelte';
   import AgentGraph from './components/AgentGraph.svelte';
@@ -68,18 +68,11 @@ Responsibilities:
 
   async function forge() {
     if (cleanup) cleanup();
+    view = 'dashboard';
     if (mockMode) {
-      view = 'dashboard';
-      cleanup = connectMock();
+      cleanup = await connectMockLocal();
     } else {
-      const resp = await fetch('http://localhost:8000/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume, job_posting: jobPosting }),
-      });
-      const { run_id } = await resp.json();
-      view = 'dashboard';
-      cleanup = connect(run_id);
+      cleanup = await startLiveRun(resume, jobPosting);
     }
   }
 

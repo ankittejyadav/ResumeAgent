@@ -84,6 +84,16 @@ async def orchestrate(resume: str, job_posting: str, emit: Emitter) -> None:
     Emits schema-compliant events per docs/02-EVENT-SCHEMA.md throughout.
     """
     t_start = time.time()
+    try:
+        await _orchestrate_inner(resume, job_posting, emit, t_start)
+    except Exception as e:
+        import traceback
+        await emit(ev("log", level="error", message=f"Orchestrator crashed: {e}"))
+        await emit(ev("done", before=0, after=0, deliverable_kinds=[], elapsed_s=round(time.time() - t_start, 1)))
+        traceback.print_exc()
+
+
+async def _orchestrate_inner(resume: str, job_posting: str, emit: Emitter, t_start: float) -> None:
     skills = load_skills()
 
     # 1. run_started + skill_loaded events

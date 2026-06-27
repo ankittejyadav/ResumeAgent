@@ -1,5 +1,9 @@
 import { writable } from 'svelte/store';
 
+// Backend URL: set VITE_BACKEND_URL in Vercel env vars for deployed live mode.
+// Defaults to localhost for local development.
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
 export const state = writable({
   todos: [],
   skills: [],
@@ -13,10 +17,10 @@ export const state = writable({
   usage: null,
   done: false,
   running: false,
-  runId: null,
 });
 
 let _es = null;
+let _mockTimers = [];
 
 function apply(evt) {
   state.update(s => {
@@ -78,9 +82,15 @@ function apply(evt) {
   });
 }
 
+function _clearMockTimers() {
+  _mockTimers.forEach(t => clearTimeout(t));
+  _mockTimers = [];
+}
+
 export function connect(runId) {
+  _clearMockTimers();
   if (_es) _es.close();
-  const es = new EventSource(`http://localhost:8000/events/${runId}`);
+  const es = new EventSource(`${BACKEND}/events/${runId}`);
   _es = es;
   es.onmessage = (e) => {
     try { apply(JSON.parse(e.data)); } catch (_) {}
@@ -88,36 +98,44 @@ export function connect(runId) {
   es.onerror = () => {
     state.update(s => ({ ...s, log: [...s.log, { level: 'error', message: 'SSE connection lost' }] }));
   };
-  return () => es.close();
+  return () => { es.close(); _es = null; };
 }
 
-export function connectMock() {
-  if (_es) _es.close();
-  // Use the server's /mock endpoint — it paces events with delay_ms server-side
-  const es = new EventSource(`http://localhost:8000/mock`);
-  _es = es;
-  es.onmessage = (e) => {
-    try { apply(JSON.parse(e.data)); } catch (_) {}
-  };
-  es.onerror = () => {
-    state.update(s => ({ ...s, log: [...s.log, { level: 'error', message: 'Mock SSE error' }] }));
-  };
-  return () => es.close();
-}
+// Client-side mock replay — works fully offline, no server needed.
+// Fetches /trace.json (bundled as a static asset in web/public/) and
+// replays events on their delay_ms timeline using setTimeout.
+export async function connectMockLocal() {
+  _clearMockTimers();
+  if (_es) { _es.close(); _es = null; }
 
-export function connectMockLocal(traceEvents) {
-  // Replay trace.json locally with delay_ms (works fully offline)
-  let i = 0;
-  function fireNext() {
-    if (i >= traceEvents.length) return;
-    const evt = { ...traceEvents[i] };
+  let events;
+  try {
+    const resp = await fetch('/trace.json');
+    events = await resp.json();
+  } catch (e) {
+    state.update(s => ({ ...s, log: [...s.log, { level: 'error', message: `Failed to load trace.json: ${e}` }] }));
+    return () => {};
+  }
+
+  let cumulative = 0;
+  for (const raw of events) {
+    const evt = { ...raw };
     const delay = evt.delay_ms || 0;
     delete evt.delay_ms;
-    setTimeout(() => {
-      apply(evt);
-      i++;
-      fireNext();
-    }, delay);
+    cumulative += delay;
+    const t = setTimeout(() => apply(evt), cumulative);
+    _mockTimers.push(t);
   }
-  fireNext();
+
+  return () => _clearMockTimers();
+}
+
+export async function startLiveRun(resume, jobPosting) {
+  const resp = await fetch(`${BACKEND}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resume, job_posting: jobPosting }),
+  });
+  const { run_id } = await resp.json();
+  return connect(run_id);
 }
